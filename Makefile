@@ -6,13 +6,14 @@ FRITZCTL_OUTPUT           ?= fritzctl
 FRITZCTL_REVISION         := $(shell git rev-parse HEAD)
 BASH_COMPLETION_OUTPUT    ?= "os/completion/fritzctl"
 MAN_PAGE_OUTPUT           ?= "os/man/fritzctl.1"
+COPYRIGHT_OUTPUT          ?= "os/doc/copyright"
 DEPENDENCIES_GRAPH_OUTPUT ?= "dependencies.png"
 BUILDFLAGS                := -ldflags="-s -w -X github.com/bpicode/fritzctl/config.Version=$(FRITZCTL_VERSION) -X github.com/bpicode/fritzctl/config.Revision=$(FRITZCTL_REVISION)" -gcflags="-trimpath=$(GOPATH)" -asmflags="-trimpath=$(GOPATH)"
 TESTFLAGS                 ?=
 
-all: toolchain sysinfo build install test codequality completion_bash man
+all: toolchain sysinfo build install test codequality completion_bash man copyright
 
-.PHONY: clean build man
+.PHONY: clean build man copyright
 
 define ok
 	@tput setaf 6 2>/dev/null || echo -n ""
@@ -42,6 +43,7 @@ clean: toolchain
 	@vgo clean -i
 	@rm -f ./os/completion/fritzctl
 	@rm -f ./os/man/*.gz
+	@rm -f ./os/doc/copyright
 	@rm -f ./coverage-all.html
 	@rm -f ./coverage-all.out
 	@rm -f ./coverage.out
@@ -100,6 +102,12 @@ man:
 	@echo -n ">> MAN PAGE, output = $(MAN_PAGE_OUTPUT).gz"
 	@vgo run main.go doc man > $(MAN_PAGE_OUTPUT)
 	@gzip --force $(MAN_PAGE_OUTPUT)
+	@$(call ok)
+
+copyright:
+	@echo -n ">> COPYRIGHT, output = $(COPYRIGHT_OUTPUT)"
+	@go build github.com/bpicode/fritzctl/tools/notice2copyright
+	@./notice2copyright ./ "MIT License (Expat)"> $(COPYRIGHT_OUTPUT)
 	@$(call ok)
 
 codequality:
@@ -185,15 +193,17 @@ pkg_darwin: dist_darwin
 	@zip -q build/distributions/fritzctl-$(FRITZCTL_VERSION)-darwin-amd64.zip build/distributions/darwin_amd64/fritzctl
 	@$(call ok)
 
-pkg_linux: dist_linux man completion_bash
+pkg_linux: dist_linux man completion_bash copyright
 	@mkdir -p build/distributions/linux_amd64/usr/bin
 	@mkdir -p build/distributions/linux_amd64/etc/fritzctl
 	@mkdir -p build/distributions/linux_amd64/etc/bash_completion.d
 	@mkdir -p build/distributions/linux_amd64/usr/share/man/man1
+	@mkdir -p build/distributions/linux_amd64/usr/share/doc/fritzctl
 	@cp os/completion/fritzctl build/distributions/linux_amd64/etc/bash_completion.d/
 	@cp os/config/fritzctl.json build/distributions/linux_amd64/etc/fritzctl/
 	@cp os/config/fritz.pem build/distributions/linux_amd64/etc/fritzctl/
 	@cp os/man/*.1.gz build/distributions/linux_amd64/usr/share/man/man1/
+	@cp os/doc/copyright build/distributions/linux_amd64/usr/share/doc/fritzctl/
 
 	@echo ">> PACKAGE, linux/amd64/deb"
 	@echo -n "     "
@@ -206,10 +216,12 @@ pkg_linux: dist_linux man completion_bash
 	@mkdir -p build/distributions/linux_arm/etc/fritzctl
 	@mkdir -p build/distributions/linux_arm/etc/bash_completion.d
 	@mkdir -p build/distributions/linux_arm/usr/share/man/man1
+	@mkdir -p build/distributions/linux_arm/usr/share/doc/fritzctl
 	@cp os/completion/fritzctl build/distributions/linux_arm/etc/bash_completion.d/
 	@cp os/config/fritzctl.json build/distributions/linux_arm/etc/fritzctl/
 	@cp os/config/fritz.pem build/distributions/linux_arm/etc/fritzctl/
 	@cp os/man/*.1.gz build/distributions/linux_arm/usr/share/man/man1/
+	@cp os/doc/copyright build/distributions/linux_arm/usr/share/doc/fritzctl/
 
 	@echo ">> PACKAGE, linux/armhf/deb"
 	@echo -n "     "
@@ -266,7 +278,6 @@ publish_win:
 	@echo "     UPLOAD -> BINTRAY, $(WINZIP)"
 	@curl -f -T ./build/distributions/$(WINZIP) -ubpicode:$(BINTRAY_API_KEY) -H "X-GPG-PASSPHRASE:$(BINTRAY_SIGN_GPG_PASSPHRASE)" "https://api.bintray.com/content/bpicode/fritzctl_win/fritzctl/$(FRITZCTL_VERSION)/$(WINZIP);publish=1"
 
-
 demogif:
 	@echo ">> DEMO GIF"
 	@vgo build -o mock/standalone/standalone  mock/standalone/main.go
@@ -275,3 +286,8 @@ demogif:
 	@(cd mock/ && asciinema rec -c '/bin/sh' ../images/fritzctl_demo.json)
 	@kill `cat </tmp/TEST_SERVER.PID`
 	@docker run --rm -v $(PWD)/images:/data asciinema/asciicast2gif -t monokai fritzctl_demo.json fritzctl_demo.gif
+
+release_github: pkg_all dist_all
+	@echo ">> GITHUB RELEASE"
+	@$(eval ASSETS:=$(shell find build/ -maxdepth 2 -type f -printf '-a %p\n'))
+	@hub release create --draft v$(FRITZCTL_VERSION) --message "fritzctl $(FRITZCTL_VERSION)" $(ASSETS)

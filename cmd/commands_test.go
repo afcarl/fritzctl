@@ -26,6 +26,8 @@ func TestCommands(t *testing.T) {
 		{cmd: versionCmd, srv: mock.New().UnstartedServer()},
 		{cmd: toggleCmd, args: []string{"SWITCH_3"}, srv: mock.New().UnstartedServer()},
 		{cmd: temperatureCmd, args: []string{"19.5", "HKR_1"}, srv: mock.New().UnstartedServer()},
+		{cmd: temperatureCmd, args: []string{"comf", "HKR_1"}, srv: mock.New().UnstartedServer()},
+		{cmd: temperatureCmd, args: []string{"sav", "HKR_1"}, srv: mock.New().UnstartedServer()},
 		{cmd: switchOnCmd, args: []string{"SWITCH_1"}, srv: mock.New().UnstartedServer()},
 		{cmd: switchOffCmd, args: []string{"SWITCH_2"}, srv: mock.New().UnstartedServer()},
 		{cmd: sessionIDCmd, srv: mock.New().UnstartedServer()},
@@ -33,13 +35,14 @@ func TestCommands(t *testing.T) {
 		{cmd: planManifestCmd, args: []string{"../testdata/devicelist_fritzos06.83_plan.yml"}, srv: mock.New().UnstartedServer()},
 		{cmd: exportManifestCmd, srv: mock.New().UnstartedServer()},
 		{cmd: applyManifestCmd, args: []string{"../testdata/devicelist_fritzos06.83_plan.yml"}, srv: mock.New().UnstartedServer()},
-		{cmd: listGroupsCmd, args: []string{}, srv: mock.New().UnstartedServer()},
-		{cmd: listLanDevicesCmd, args: []string{}, srv: mock.New().UnstartedServer()},
-		{cmd: listLogsCmd, args: []string{}, srv: mock.New().UnstartedServer()},
-		{cmd: listCallsCmd, args: []string{}, srv: mock.New().UnstartedServer()},
+		{cmd: listGroupsCmd, srv: mock.New().UnstartedServer()},
+		{cmd: listLanDevicesCmd, srv: mock.New().UnstartedServer()},
+		{cmd: listLogsCmd, srv: mock.New().UnstartedServer()},
+		{cmd: listCallsCmd, srv: mock.New().UnstartedServer()},
 		{cmd: listSwitchesCmd, srv: mock.New().UnstartedServer()},
+		{cmd: listSwitchesCmd, args: []string{"--output=json"}, srv: mock.New().UnstartedServer()},
 		{cmd: listThermostatsCmd, srv: mock.New().UnstartedServer()},
-		{cmd: listThermostatsCmd, srv: mock.New().UnstartedServer()},
+		{cmd: listThermostatsCmd, args: []string{"--output=json"}, srv: mock.New().UnstartedServer()},
 		{cmd: docManCmd, srv: mock.New().UnstartedServer()},
 		{cmd: boxInfoCmd, srv: mock.New().UnstartedServer()},
 		{cmd: aboutCmd, srv: mock.New().UnstartedServer()},
@@ -51,6 +54,8 @@ func TestCommands(t *testing.T) {
 			assert.NoError(t, err)
 			testCase.srv.Start()
 			defer testCase.srv.Close()
+			err = testCase.cmd.ParseFlags(testCase.args)
+			assert.NoError(t, err)
 			err = testCase.cmd.RunE(testCase.cmd, testCase.args)
 			assert.NoError(t, err)
 		})
