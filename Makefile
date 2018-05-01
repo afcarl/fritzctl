@@ -48,6 +48,8 @@ clean: toolchain
 	@rm -f ./coverage-all.out
 	@rm -f ./coverage.out
 	@rm -rf ./build/
+	@rm -f ./fritzctl
+	@rm -f ./analice
 	@$(call ok)
 
 deps:
@@ -104,10 +106,22 @@ man:
 	@gzip --force $(MAN_PAGE_OUTPUT)
 	@$(call ok)
 
-copyright:
+analice:
+	@echo -n ">> ANALICE"
+	@go build github.com/bpicode/fritzctl/tools/analice
+	@$(call ok)
+
+license_compliance: analice
+	@echo -n ">> OSS LICENSE COMPLIANCE"
+	@./analice generate notice . > NOTICE.tmp
+	@diff NOTICE NOTICE.tmp || exit 1
+	@rm NOTICE.tmp
+	@$(call ok)
+
+copyright: license_compliance
 	@echo -n ">> COPYRIGHT, output = $(COPYRIGHT_OUTPUT)"
-	@go build github.com/bpicode/fritzctl/tools/notice2copyright
-	@./notice2copyright ./ "MIT License (Expat)"> $(COPYRIGHT_OUTPUT)
+	@go build github.com/bpicode/fritzctl/tools/analice
+	@./analice generate copyright ./ > $(COPYRIGHT_OUTPUT)
 	@$(call ok)
 
 codequality:
@@ -153,6 +167,16 @@ codequality:
 	@echo -n "     UNUSED"
 	@go get honnef.co/go/tools/cmd/unused
 	@unused $(PKGS)
+	@$(call ok)
+
+	@echo -n "     INTERFACER"
+	@go get mvdan.cc/interfacer
+	@interfacer ./...
+	@$(call ok)
+
+	@echo -n "     UNCONVERT"
+	@go get github.com/mdempsky/unconvert
+	@unconvert -v $(PKGS)
 	@$(call ok)
 
 dist_all: dist_linux dist_darwin dist_win dist_bsd
